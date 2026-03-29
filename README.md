@@ -63,10 +63,11 @@ See `config/companion.php` for all options including:
 - **Feature toggles** — enable/disable each endpoint group
 - **Scopes & presets** — define what agents can access
 - **Command whitelist/blacklist** — control which artisan commands are executable
-- **Model browser settings** — hidden columns, redaction patterns, pagination
+- **Model browser settings** — hidden columns, redaction patterns, pagination, column validation
+- **Cache browser** — `cache.allowed_prefixes` to restrict which keys are accessible (empty = all)
 - **Config redaction** — patterns, always/never redact rules
-- **Rate limiting** — per-agent request limits
-- **Audit log** — retention, read/write logging
+- **Rate limiting** — per-agent API and SSE connection limits
+- **Audit log** — retention, read/write logging, automatic payload sanitisation
 
 ## Artisan Commands
 
@@ -114,7 +115,7 @@ Agents authenticate via bearer token:
 Authorization: Bearer cmp_01hx...|a3f8b2...
 ```
 
-Tokens are SHA-256 hashed before storage. The plain token is shown once at creation.
+Tokens are SHA-256 hashed before storage. The plain token is shown once at creation. The authenticated agent is accessible via `$request->companionAgent()`.
 
 ## HasCompanionAccess Trait
 
@@ -178,6 +179,33 @@ class Patient extends Model implements CompanionSerializable
 | `AgentAuthFailed` | Failed auth attempt |
 | `CommandExecuted` | Artisan command run via API |
 | `MutatingAction` | Any write operation |
+
+## Security
+
+### Model Browser
+
+- Only models discovered in configured `models.paths` are accessible — arbitrary class names are rejected
+- Sort/filter column names are validated against the database schema, excluding hidden and redacted columns
+- LIKE search wildcards are escaped to prevent pattern injection
+- Scopes can only be applied to models implementing `CompanionSerializable`
+- Relationship data passes through the same redaction pipeline as top-level records
+- Per-page limits are enforced (min 1, max configurable)
+
+### Cache Browser
+
+Configure `companion.cache.allowed_prefixes` to restrict key access:
+
+```php
+'cache' => [
+    'allowed_prefixes' => ['app:', 'companion:'],
+],
+```
+
+When empty (default), all keys are accessible. In production, restrict to prevent exposure of session/token data.
+
+### HTTPS
+
+HTTPS is enforced in all non-local/testing environments. Requests over plain HTTP receive a `403`.
 
 ## Testing
 
