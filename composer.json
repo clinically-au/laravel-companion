@@ -1,0 +1,61 @@
+{
+    "name": "clinically/laravel-companion",
+    "description": "A structured JSON API for mobile and external tooling to inspect, monitor, and manage Laravel applications.",
+    "keywords": ["laravel", "api", "admin", "introspection", "monitoring", "companion"],
+    "license": "MIT",
+    "type": "library",
+    "require": {
+        "php": "^8.2",
+        "illuminate/contracts": "^11.0|^12.0",
+        "illuminate/console": "^11.0|^12.0",
+        "illuminate/database": "^11.0|^12.0",
+        "illuminate/http": "^11.0|^12.0",
+        "illuminate/routing": "^11.0|^12.0",
+        "illuminate/support": "^11.0|^12.0",
+        "mateffy/laravel-introspect": "^1.1",
+        "simplesoftwareio/simple-qrcode": "^4.2"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.0",
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.0"
+    },
+    "suggest": {
+        "livewire/livewire": "Required for the admin dashboard (^4.0)",
+        "livewire/flux": "Required for the admin dashboard UI components (^2.0)",
+        "laravel/horizon": "Enables Horizon monitoring endpoints",
+        "laravel/pulse": "Enables Pulse metrics endpoints"
+    },
+    "autoload": {
+        "psr-4": {
+            "Clinically\\Companion\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Clinically\\Companion\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Clinically\\Companion\\CompanionServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "analyse": "phpstan analyse",
+        "format": "pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

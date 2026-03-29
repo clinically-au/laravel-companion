@@ -1,0 +1,12 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - src
+    excludePaths:
+        - src/Livewire
+    level: 6
+    tmpDir: phpstan.cache
+    ignoreErrors:
+        - identifier: trait.unused
