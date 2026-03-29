@@ -26,7 +26,7 @@ final class ConfigRedactionService
                 $result[$key] = $this->redact($value, $fullKey);
             } elseif ($this->shouldRedact($fullKey, (string) $key)) {
                 $result[$key] = self::REDACTED;
-                $result["_{$key}_redacted"] = true;
+                $result['_redacted'] = true;
             } else {
                 $result[$key] = $value;
             }
@@ -55,13 +55,11 @@ final class ConfigRedactionService
 
     private function shouldRedact(string $fullKey, string $leafKey): bool
     {
-        // Never redact explicitly safe keys
         $neverRedact = (array) config('companion.config_redaction.never_redact', []);
         if (in_array($fullKey, $neverRedact, true)) {
             return false;
         }
 
-        // Always redact explicitly sensitive keys (supports wildcards)
         $alwaysRedact = (array) config('companion.config_redaction.always_redact', []);
         foreach ($alwaysRedact as $pattern) {
             if ($this->matchesWildcard($fullKey, $pattern)) {
@@ -69,7 +67,6 @@ final class ConfigRedactionService
             }
         }
 
-        // Check patterns against the leaf key name
         $patterns = (array) config('companion.config_redaction.patterns', []);
         foreach ($patterns as $pattern) {
             if (preg_match($pattern, $leafKey)) {
@@ -86,7 +83,10 @@ final class ConfigRedactionService
      */
     private function matchesWildcard(string $key, string $pattern): bool
     {
-        $regex = str_replace(['.', '*'], ['\.', '[^.]+'], $pattern);
+        // Split on *, quote each segment, reassemble with [^.]+ for wildcard
+        $segments = explode('*', $pattern);
+        $quoted = array_map(fn (string $s) => preg_quote($s, '/'), $segments);
+        $regex = implode('[^.]+', $quoted);
 
         return (bool) preg_match("/^{$regex}$/", $key);
     }

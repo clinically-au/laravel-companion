@@ -23,7 +23,7 @@ final class AgentList extends Component
         $agent = CompanionAgent::findOrFail($agentId);
         $agent->revoke();
 
-        AgentRevoked::dispatch($agent, auth()->id());
+        AgentRevoked::dispatch($agent, auth()->user());
     }
 
     /**

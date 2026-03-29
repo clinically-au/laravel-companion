@@ -221,7 +221,7 @@ return [
         'default_per_page' => 25,
         'eager_load_depth' => 1,
         'hidden_columns' => [
-            'password', 'remember_token',
+            'password', 'remember_token', 'token_hash',
             'two_factor_secret', 'two_factor_recovery_codes',
         ],
         'redact_patterns' => ['/password/i', '/secret/i', '/token/i', '/key/i'],
@@ -244,6 +244,17 @@ return [
             'app.name', 'app.env', 'app.debug',
             'app.url', 'app.timezone',
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache Browser
+    |--------------------------------------------------------------------------
+    | When allowed_prefixes is set, only cache keys matching one of the
+    | prefixes can be read/deleted via the API. Empty array allows all keys.
+    */
+    'cache' => [
+        'allowed_prefixes' => [],
     ],
 
     /*

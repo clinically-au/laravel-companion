@@ -20,7 +20,6 @@ final class CacheController extends Controller
             'store' => config("cache.stores.{$driver}.driver"),
         ];
 
-        // Redis-specific info
         if ($data['store'] === 'redis') {
             try {
                 /** @var RedisStore $store */
@@ -40,8 +39,12 @@ final class CacheController extends Controller
         return $this->respond($data);
     }
 
-    public function show(string $key): JsonResponse
+    public function show(Request $request, string $key): JsonResponse
     {
+        if (! $this->isKeyAllowed($key)) {
+            return $this->error('Cache key not permitted.', 'key_not_allowed', 403);
+        }
+
         if (! Cache::has($key)) {
             return $this->error('Cache key not found.', 'not_found', 404);
         }
@@ -57,6 +60,10 @@ final class CacheController extends Controller
 
     public function forget(Request $request, string $key): JsonResponse
     {
+        if (! $this->isKeyAllowed($key)) {
+            return $this->error('Cache key not permitted.', 'key_not_allowed', 403);
+        }
+
         MutatingAction::dispatch($this->agent($request), 'cache.forget', ['key' => $key]);
 
         Cache::forget($key);
@@ -75,6 +82,28 @@ final class CacheController extends Controller
         Cache::flush();
 
         return $this->respond(['message' => 'Cache flushed.']);
+    }
+
+    /**
+     * Check if a cache key is allowed based on configured prefix allowlist.
+     * If no prefixes are configured, all keys are allowed.
+     */
+    private function isKeyAllowed(string $key): bool
+    {
+        /** @var list<string> $allowedPrefixes */
+        $allowedPrefixes = (array) config('companion.cache.allowed_prefixes', []);
+
+        if ($allowedPrefixes === []) {
+            return true;
+        }
+
+        foreach ($allowedPrefixes as $prefix) {
+            if (str_starts_with($key, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function serialiseValue(mixed $value): mixed

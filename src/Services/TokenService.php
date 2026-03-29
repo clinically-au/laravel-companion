@@ -7,6 +7,7 @@ namespace Clinically\Companion\Services;
 use Clinically\Companion\Data\CompanionAgentToken;
 use Clinically\Companion\Events\AgentCreated;
 use Clinically\Companion\Models\CompanionAgent;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -22,7 +23,7 @@ final class TokenService
         string $name,
         array $scopes,
         ?Carbon $expiresAt = null,
-        ?int $createdBy = null,
+        ?Authenticatable $creator = null,
         ?array $ipAllowlist = null,
     ): CompanionAgentToken {
         $prefix = (string) config('companion.agents.token_prefix', 'cmp_');
@@ -33,14 +34,14 @@ final class TokenService
         $agent = CompanionAgent::create([
             'name' => $name,
             'token_hash' => $this->hash($plainToken),
-            'token_prefix' => substr($plainToken, 0, 16),
+            'token_prefix' => substr($plainToken, 0, 8),
             'scopes' => $scopes,
             'ip_allowlist' => $ipAllowlist,
             'expires_at' => $expiresAt,
-            'created_by' => $createdBy,
+            'created_by' => $creator?->getAuthIdentifier(),
         ]);
 
-        AgentCreated::dispatch($agent, $createdBy);
+        AgentCreated::dispatch($agent, $creator);
 
         return new CompanionAgentToken($agent, $plainToken);
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Clinically\Companion\Http\Controllers\Api;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 final class MigrationController extends Controller
@@ -21,9 +22,8 @@ final class MigrationController extends Controller
                 'ran' => true,
             ]);
 
-        // Group by batch for the response
         $grouped = $ran->groupBy('batch')
-            ->map(fn ($migrations, $batch) => [
+            ->map(fn (Collection $migrations, int|string $batch) => [
                 'batch' => $batch,
                 'migrations' => $migrations->pluck('migration')->values()->all(),
             ])

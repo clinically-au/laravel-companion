@@ -28,11 +28,25 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
-class CompanionAgent extends Model
+final class CompanionAgent extends Model
 {
     use HasUlids;
 
-    protected $guarded = [];
+    /** @var list<string> */
+    protected $fillable = [
+        'name',
+        'token_hash',
+        'token_prefix',
+        'scopes',
+        'ip_allowlist',
+        'last_seen_at',
+        'last_ip',
+        'last_user_agent',
+        'expires_at',
+        'revoked_at',
+        'created_by',
+        'metadata',
+    ];
 
     /**
      * @return array<string, string>

@@ -44,7 +44,7 @@ final class AgentController extends Controller
             name: $validated['name'],
             scopes: $validated['scopes'],
             expiresAt: $expiryDays > 0 ? now()->addDays((int) $expiryDays) : null,
-            createdBy: $request->user()?->getAuthIdentifier(),
+            creator: $request->user(),
         );
 
         return view('companion::dashboard.agents.created', [ // @phpstan-ignore argument.type
@@ -65,7 +65,7 @@ final class AgentController extends Controller
         $agent = CompanionAgent::findOrFail($agent);
         $agent->revoke();
 
-        AgentRevoked::dispatch($agent, request()->user()?->getAuthIdentifier());
+        AgentRevoked::dispatch($agent, request()->user());
 
         return redirect()->route('companion.dashboard.agents.index')
             ->with('status', "Agent '{$agent->name}' has been revoked.");

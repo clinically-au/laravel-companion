@@ -23,7 +23,7 @@ describe('token generation', function () {
     it('stores the token prefix for identification', function () {
         $result = $this->service->createAgent('Test', ['*']);
 
-        expect($result->agent->token_prefix)->toBe(substr($result->plainToken, 0, 16));
+        expect($result->agent->token_prefix)->toBe(substr($result->plainToken, 0, 8));
     });
 
     it('can find an agent by plain token', function () {

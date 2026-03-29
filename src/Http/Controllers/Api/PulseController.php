@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace Clinically\Companion\Http\Controllers\Api;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 final class PulseController extends Controller
 {
     public function servers(): JsonResponse
     {
-        return $this->queryPulse('pulse_aggregates', function ($query) {
+        return $this->queryPulse('pulse_aggregates', function (Builder $query): Collection {
             return $query->where('type', 'server')
                 ->orderByDesc('period')
                 ->limit(50)
@@ -22,7 +24,7 @@ final class PulseController extends Controller
 
     public function slowQueries(Request $request): JsonResponse
     {
-        return $this->queryPulse('pulse_aggregates', function ($query) use ($request) {
+        return $this->queryPulse('pulse_aggregates', function (Builder $query) use ($request): Collection {
             return $query->where('type', 'slow_query')
                 ->orderByDesc('value')
                 ->limit((int) $request->query('limit', '20'))
@@ -32,7 +34,7 @@ final class PulseController extends Controller
 
     public function slowRequests(Request $request): JsonResponse
     {
-        return $this->queryPulse('pulse_aggregates', function ($query) use ($request) {
+        return $this->queryPulse('pulse_aggregates', function (Builder $query) use ($request): Collection {
             return $query->where('type', 'slow_request')
                 ->orderByDesc('value')
                 ->limit((int) $request->query('limit', '20'))
@@ -42,7 +44,7 @@ final class PulseController extends Controller
 
     public function slowJobs(Request $request): JsonResponse
     {
-        return $this->queryPulse('pulse_aggregates', function ($query) use ($request) {
+        return $this->queryPulse('pulse_aggregates', function (Builder $query) use ($request): Collection {
             return $query->where('type', 'slow_job')
                 ->orderByDesc('value')
                 ->limit((int) $request->query('limit', '20'))
@@ -52,7 +54,7 @@ final class PulseController extends Controller
 
     public function exceptions(): JsonResponse
     {
-        return $this->queryPulse('pulse_aggregates', function ($query) {
+        return $this->queryPulse('pulse_aggregates', function (Builder $query): Collection {
             return $query->where('type', 'exception')
                 ->orderByDesc('count')
                 ->limit(50)
@@ -62,7 +64,7 @@ final class PulseController extends Controller
 
     public function usage(): JsonResponse
     {
-        return $this->queryPulse('pulse_aggregates', function ($query) {
+        return $this->queryPulse('pulse_aggregates', function (Builder $query): Collection {
             return $query->where('type', 'user_request')
                 ->orderByDesc('count')
                 ->limit(20)
@@ -82,9 +84,9 @@ final class PulseController extends Controller
             $results = $callback($query);
 
             return $this->respond($results->toArray());
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             return $this->error(
-                'Failed to query Pulse data: '.$e->getMessage(),
+                'Failed to query Pulse data.',
                 'pulse_query_error',
                 500,
             );

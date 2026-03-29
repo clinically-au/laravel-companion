@@ -20,7 +20,7 @@ final class EventController extends Controller
         foreach ($rawListeners as $event => $listeners) {
             $events[] = [
                 'event' => $event,
-                'listeners' => collect($listeners)->map(function ($listener) {
+                'listeners' => collect($listeners)->map(function (mixed $listener) {
                     if (is_string($listener)) {
                         return [
                             'class' => $listener,

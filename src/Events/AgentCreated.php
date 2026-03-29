@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Clinically\Companion\Events;
 
 use Clinically\Companion\Models\CompanionAgent;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Events\Dispatchable;
 
 final class AgentCreated
@@ -13,6 +14,6 @@ final class AgentCreated
 
     public function __construct(
         public readonly CompanionAgent $agent,
-        public readonly ?int $creatorId = null,
+        public readonly ?Authenticatable $creator = null,
     ) {}
 }

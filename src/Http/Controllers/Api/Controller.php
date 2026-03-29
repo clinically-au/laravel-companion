@@ -40,7 +40,8 @@ abstract class Controller extends BaseController
     }
 
     /**
-     * Build an error response.
+     * Build an error response. Omits version details from error responses
+     * to avoid leaking server fingerprint information.
      */
     protected function error(string $message, string $code, int $status): JsonResponse
     {
@@ -49,7 +50,9 @@ abstract class Controller extends BaseController
                 'code' => $code,
                 'message' => $message,
             ],
-            'meta' => $this->baseMeta(),
+            'meta' => [
+                'timestamp' => now()->toIso8601String(),
+            ],
         ], $status);
     }
 

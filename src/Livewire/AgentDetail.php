@@ -44,7 +44,7 @@ final class AgentDetail extends Component
         $agent = $this->agent();
         $agent->revoke();
 
-        AgentRevoked::dispatch($agent, auth()->id());
+        AgentRevoked::dispatch($agent, auth()->user());
     }
 
     public function render(): View

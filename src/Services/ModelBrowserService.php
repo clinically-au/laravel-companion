@@ -20,6 +20,7 @@ final class ModelBrowserService
     public function __construct(
         private readonly LaravelIntrospect $introspect,
     ) {}
+
     /**
      * Discover all Eloquent models using laravel-introspect.
      *
@@ -27,7 +28,7 @@ final class ModelBrowserService
      */
     public function discoverModels(): Collection
     {
-        /** @var \Illuminate\Support\Collection<int, \Mateffy\Introspect\DTO\Model> $models */
+        /** @var Collection<int, \Mateffy\Introspect\DTO\Model> $models */
         $models = $this->introspect->models()->get();
 
         return $models
@@ -56,12 +57,15 @@ final class ModelBrowserService
     public function resolveModelClass(string $identifier): ?string
     {
         $decoded = urldecode($identifier);
+        $models = $this->discoverModels();
 
-        if (class_exists($decoded) && is_subclass_of($decoded, Model::class)) {
-            return $decoded;
+        // Try exact FQCN match against discovered models only
+        $exactMatch = $models->firstWhere('class', $decoded);
+        if ($exactMatch !== null) {
+            return $exactMatch['class'];
         }
 
-        $models = $this->discoverModels();
+        // Short name lookup
         $matches = $models->where('short_name', $identifier);
 
         if ($matches->count() === 1) {
@@ -125,6 +129,8 @@ final class ModelBrowserService
 
     /**
      * Serialise a model record for the API response.
+     * Applies hidden column stripping and redaction recursively
+     * to relationship data as well.
      *
      * @return array<string, mixed>
      */
@@ -134,7 +140,7 @@ final class ModelBrowserService
             return $record->toCompanionArray();
         }
 
-        $attributes = $record->toArray();
+        $attributes = $record->attributesToArray();
 
         $hidden = (array) config('companion.models.hidden_columns', []);
         foreach ($hidden as $column) {
@@ -148,6 +154,15 @@ final class ModelBrowserService
                     $attributes[$key] = '********';
                     break;
                 }
+            }
+        }
+
+        // Recursively serialise loaded relationships
+        foreach ($record->getRelations() as $relationName => $related) {
+            if ($related instanceof Model) {
+                $attributes[$relationName] = $this->serialiseRecord($related);
+            } elseif ($related instanceof \Illuminate\Database\Eloquent\Collection) {
+                $attributes[$relationName] = $related->map(fn (Model $r) => $this->serialiseRecord($r))->all();
             }
         }
 

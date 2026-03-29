@@ -9,6 +9,7 @@ use Clinically\Companion\Events\AgentRevoked;
 use Clinically\Companion\Models\CompanionAgent;
 use Clinically\Companion\Models\CompanionAuditLog;
 use Clinically\Companion\Services\TokenService;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -51,11 +52,12 @@ trait HasCompanionAccess
         /** @var TokenService $tokenService */
         $tokenService = app(TokenService::class);
 
+        /** @var Authenticatable $this */
         return $tokenService->createAgent(
             name: $name,
             scopes: $scopes,
             expiresAt: $expiresAt,
-            createdBy: $this->getKey(),
+            creator: $this,
             ipAllowlist: $ipAllowlist,
         );
     }
@@ -71,7 +73,8 @@ trait HasCompanionAccess
 
         $agent->revoke();
 
-        AgentRevoked::dispatch($agent, $this->getKey());
+        /** @var Authenticatable $this */
+        AgentRevoked::dispatch($agent, $this);
     }
 
     /**

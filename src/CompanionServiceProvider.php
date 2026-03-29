@@ -33,6 +33,7 @@ use Clinically\Companion\Http\Middleware\CompanionFeatureMiddleware;
 use Clinically\Companion\Http\Middleware\CompanionScopeMiddleware;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -52,6 +53,7 @@ final class CompanionServiceProvider extends ServiceProvider
     {
         $this->registerPublishables();
         $this->registerMiddleware();
+        $this->registerRequestMacro();
         $this->registerGate();
         $this->registerRateLimiting();
         $this->registerRoutes();
@@ -92,6 +94,14 @@ final class CompanionServiceProvider extends ServiceProvider
         $router->aliasMiddleware('companion.feature', CompanionFeatureMiddleware::class);
     }
 
+    private function registerRequestMacro(): void
+    {
+        Request::macro('companionAgent', function (): ?Models\CompanionAgent {
+            /** @var Request $this */
+            return $this->attributes->get('companion_agent');
+        });
+    }
+
     private function registerGate(): void
     {
         Gate::define('viewCompanion', function ($user = null) {
@@ -105,13 +115,16 @@ final class CompanionServiceProvider extends ServiceProvider
 
     private function registerRateLimiting(): void
     {
-        RateLimiter::for('companion', function ($request) {
-            $agent = $request->attributes->get('companion_agent');
-            $key = $agent ? $agent->id : $request->ip();
-
+        RateLimiter::for('companion', function (Request $request) {
             return Limit::perMinute(
                 (int) config('companion.rate_limit.api', 120)
-            )->by('companion:'.$key);
+            )->by('companion:'.($request->ip() ?? 'unknown'));
+        });
+
+        RateLimiter::for('companion-sse', function (Request $request) {
+            return Limit::perMinute(
+                (int) config('companion.rate_limit.sse', 5)
+            )->by('companion-sse:'.($request->ip() ?? 'unknown'));
         });
     }
 
@@ -119,7 +132,7 @@ final class CompanionServiceProvider extends ServiceProvider
     {
         $features = $this->app->make(FeatureRegistry::class);
         $path = config('companion.path', 'companion');
-        $middleware = array_merge(['api', 'companion.auth', 'companion.audit'], (array) config('companion.middleware', []));
+        $middleware = array_merge(['api'], (array) config('companion.middleware', []), ['companion.auth', 'companion.audit']);
 
         $routeGroup = Route::prefix("{$path}/api")
             ->middleware($middleware);
@@ -280,7 +293,7 @@ final class CompanionServiceProvider extends ServiceProvider
 
             if ($features->enabled('logs.stream')) {
                 Route::get('/logs/{file}/stream', [LogController::class, 'stream'])
-                    ->middleware('companion.scope:logs:read')
+                    ->middleware(['companion.scope:logs:read', 'throttle:companion-sse'])
                     ->name('companion.api.logs.stream');
             }
         }
