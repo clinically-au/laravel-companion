@@ -53,7 +53,7 @@ final class AgentCreator extends Component
             name: $this->name,
             scopes: $this->scopes,
             expiresAt: $this->expiryDays > 0 ? now()->addDays($this->expiryDays) : null,
-            createdBy: auth()->id(),
+            creator: auth()->user(),
         );
 
         $this->plainToken = $result->plainToken;

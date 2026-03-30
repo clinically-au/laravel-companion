@@ -19,7 +19,42 @@ final class ScopePicker extends Component
     {
         /** @var TokenService $tokenService */
         $tokenService = app(TokenService::class);
-        $this->selected = $tokenService->resolvePreset($preset);
+        $resolved = $tokenService->resolvePreset($preset);
+
+        /** @var list<string> $availableScopes */
+        $availableScopes = (array) config('companion.scopes', []);
+
+        $this->selected = $this->expandWildcards($resolved, $availableScopes);
+    }
+
+    /**
+     * Expand wildcard patterns (e.g. '*', '*:read') to matching available scopes.
+     *
+     * @param  list<string>  $scopes
+     * @param  list<string>  $availableScopes
+     * @return list<string>
+     */
+    private function expandWildcards(array $scopes, array $availableScopes): array
+    {
+        $expanded = [];
+
+        foreach ($scopes as $scope) {
+            if (! str_contains($scope, '*')) {
+                $expanded[] = $scope;
+
+                continue;
+            }
+
+            $pattern = '/^'.str_replace('\*', '[^:]*', preg_quote($scope, '/')).'$/';
+
+            foreach ($availableScopes as $available) {
+                if (preg_match($pattern, $available)) {
+                    $expanded[] = $available;
+                }
+            }
+        }
+
+        return array_values(array_unique($expanded));
     }
 
     public function toggleScope(string $scope): void
