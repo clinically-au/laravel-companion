@@ -415,6 +415,42 @@ final class CompanionServiceProvider extends ServiceProvider
                 Route::get('/features', [Http\Controllers\Dashboard\FeatureController::class, 'index'])
                     ->name('companion.dashboard.features.index');
             });
+
+        // OpenAPI spec (public, no auth required)
+        Route::prefix($path)->group(function () {
+            Route::get('/api/docs/openapi.yaml', function () {
+                $specPath = __DIR__.'/../resources/openapi.yaml';
+
+                if (! is_file($specPath)) {
+                    abort(404);
+                }
+
+                return response()->file($specPath, ['Content-Type' => 'text/yaml']);
+            })->name('companion.api.docs.spec');
+
+            Route::get('/api/docs', function () {
+                $specUrl = route('companion.api.docs.spec');
+
+                return response(<<<HTML
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    <title>Companion API Docs</title>
+                    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+                </head>
+                <body>
+                    <div id="swagger-ui"></div>
+                    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+                    <script>
+                        SwaggerUIBundle({ url: "{$specUrl}", dom_id: '#swagger-ui', deepLinking: true });
+                    </script>
+                </body>
+                </html>
+                HTML);
+            })->name('companion.api.docs');
+        });
     }
 
     private function registerCommands(): void

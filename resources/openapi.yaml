@@ -1,0 +1,1825 @@
+openapi: 3.1.0
+info:
+  title: Laravel Companion API
+  description: |
+    REST API for the clinically/laravel-companion package. Provides remote access to
+    Laravel application internals including models, routes, config, logs, queues, and more.
+
+    The base path is configurable via the package config (default: `/companion/api`).
+    All endpoints except `GET /ping` require Bearer token authentication.
+  version: 1.0.0
+  contact:
+    name: Clinically
+    url: https://github.com/clinically-au/laravel-companion
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: "{scheme}://{host}/companion/api"
+    description: Default base path (configurable)
+    variables:
+      scheme:
+        default: https
+        enum: [http, https]
+      host:
+        default: localhost
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Handshake
+    description: Health check and capability discovery
+  - name: Environment
+    description: Application environment details
+  - name: Models
+    description: Eloquent model metadata
+  - name: Model Records
+    description: Browse and inspect model records
+  - name: Routes
+    description: Registered application routes
+  - name: Commands
+    description: Artisan command listing
+  - name: Command Execution
+    description: Run whitelisted Artisan commands
+  - name: Queues
+    description: Queue and failed job inspection
+  - name: Queue Write
+    description: Retry and flush failed jobs
+  - name: Cache
+    description: Cache inspection
+  - name: Cache Write
+    description: Cache mutation (forget, flush)
+  - name: Config
+    description: Application configuration
+  - name: Logs
+    description: Log file listing and reading
+  - name: Schedule
+    description: Scheduled task listing
+  - name: Migrations
+    description: Migration status
+  - name: Events
+    description: Registered events and listeners
+  - name: Horizon
+    description: Laravel Horizon integration (auto-detected)
+  - name: Pulse
+    description: Laravel Pulse integration (auto-detected)
+
+paths:
+  # ── Handshake ─────────────────────────────────────────────
+  /ping:
+    get:
+      operationId: ping
+      summary: Health check
+      description: Returns a simple status check. Does not require authentication.
+      tags: [Handshake]
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [status]
+                    properties:
+                      status:
+                        type: string
+                        example: ok
+
+  /capabilities:
+    get:
+      operationId: getCapabilities
+      summary: Feature capabilities
+      description: Returns which optional features are enabled or available.
+      tags: [Handshake]
+      responses:
+        "200":
+          description: Feature map
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [features]
+                        properties:
+                          features:
+                            type: object
+                            additionalProperties:
+                              oneOf:
+                                - type: boolean
+                                - type: object
+                                  properties:
+                                    available:
+                                      type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+
+  # ── Environment ───────────────────────────────────────────
+  /environment:
+    get:
+      operationId: getEnvironment
+      summary: Application environment
+      description: "Required scope: `environment:read`."
+      tags: [Environment]
+      responses:
+        "200":
+          description: Environment details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/EnvironmentData"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── Models ────────────────────────────────────────────────
+  /models:
+    get:
+      operationId: listModels
+      summary: List all Eloquent models
+      description: "Required scope: `models:read`."
+      tags: [Models]
+      responses:
+        "200":
+          description: Array of model metadata
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ModelMetadata"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /models/{model}:
+    get:
+      operationId: getModel
+      summary: Get model metadata
+      description: "Required scope: `models:read`. Returns 409 if the model name is ambiguous."
+      tags: [Models]
+      parameters:
+        - $ref: "#/components/parameters/ModelName"
+      responses:
+        "200":
+          description: Single model metadata
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ModelMetadata"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Ambiguous model name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /models/{model}/relationships:
+    get:
+      operationId: getModelRelationships
+      summary: Get model relationships
+      description: "Required scope: `models:read`."
+      tags: [Models]
+      parameters:
+        - $ref: "#/components/parameters/ModelName"
+      responses:
+        "200":
+          description: Array of relationship metadata
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Model Records ─────────────────────────────────────────
+  /models/{model}/records:
+    get:
+      operationId: listModelRecords
+      summary: Browse model records
+      description: |
+        Required scope: `models:browse`. Requires the `models.browse` feature to be enabled.
+
+        Supports filtering via `filter[column]` or `filter[column:operator]` query params.
+        Operators: `eq`, `gt`, `lt`, `gte`, `lte`, `like`, `null`, `not_null`.
+
+        The `scope` query param applies a named Eloquent scope (only for models implementing CompanionSerializable).
+      tags: [Model Records]
+      parameters:
+        - $ref: "#/components/parameters/ModelName"
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+        - name: search
+          in: query
+          description: Full-text search string
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: Column to sort by
+          schema:
+            type: string
+        - name: direction
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+        - name: scope
+          in: query
+          description: Named Eloquent scope (CompanionSerializable models only)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated records
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /models/{model}/records/{id}:
+    get:
+      operationId: getModelRecord
+      summary: Get a single model record
+      description: |
+        Required scope: `models:browse`. Requires the `models.browse` feature.
+        Returns the record with eager-loaded relationships.
+      tags: [Model Records]
+      parameters:
+        - $ref: "#/components/parameters/ModelName"
+        - name: id
+          in: path
+          required: true
+          description: Primary key of the record
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Single record
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Routes ────────────────────────────────────────────────
+  /routes:
+    get:
+      operationId: listRoutes
+      summary: List registered routes
+      description: "Required scope: `routes:read`."
+      tags: [Routes]
+      parameters:
+        - name: method
+          in: query
+          description: Filter by HTTP method
+          schema:
+            type: string
+        - name: name
+          in: query
+          description: Filter by route name prefix
+          schema:
+            type: string
+        - name: uri
+          in: query
+          description: Filter by URI (contains)
+          schema:
+            type: string
+        - name: middleware
+          in: query
+          description: Filter by middleware
+          schema:
+            type: string
+        - name: controller
+          in: query
+          description: Filter by controller class
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Array of routes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RouteEntry"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── Commands ──────────────────────────────────────────────
+  /commands:
+    get:
+      operationId: listCommands
+      summary: List all Artisan commands
+      description: "Required scope: `commands:list`."
+      tags: [Commands]
+      responses:
+        "200":
+          description: Array of commands
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CommandEntry"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /commands/whitelisted:
+    get:
+      operationId: listWhitelistedCommands
+      summary: List whitelisted Artisan commands
+      description: "Required scope: `commands:list`. Returns only commands on the whitelist."
+      tags: [Commands]
+      responses:
+        "200":
+          description: Array of whitelisted commands
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CommandEntry"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── Command Execution ─────────────────────────────────────
+  /commands/{command}/run:
+    post:
+      operationId: runCommand
+      summary: Execute an Artisan command
+      description: |
+        Required scope: `commands:execute`. Requires the `commands.execute` feature.
+        The command must not be blacklisted and must be whitelisted (if a whitelist is configured).
+      tags: [Command Execution]
+      parameters:
+        - name: command
+          in: path
+          required: true
+          description: Artisan command name
+          schema:
+            type: string
+          example: cache:clear
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                arguments:
+                  type: object
+                  additionalProperties: true
+                options:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Command output
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [exit_code, output]
+                        properties:
+                          exit_code:
+                            type: integer
+                          output:
+                            type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          description: Command blacklisted or not whitelisted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  # ── Queues ────────────────────────────────────────────────
+  /queues:
+    get:
+      operationId: getQueues
+      summary: Queue overview
+      description: "Required scope: `queues:read`."
+      tags: [Queues]
+      responses:
+        "200":
+          description: Queue connection info and sizes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [connection, driver, queues]
+                        properties:
+                          connection:
+                            type: string
+                          driver:
+                            type: string
+                          queues:
+                            type: object
+                            additionalProperties:
+                              type: integer
+                            description: "Map of queue name to pending job count"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /queues/failed:
+    get:
+      operationId: listFailedJobs
+      summary: List failed jobs
+      description: "Required scope: `queues:read`. Paginated."
+      tags: [Queues]
+      parameters:
+        - name: queue
+          in: query
+          description: Filter by queue name
+          schema:
+            type: string
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+      responses:
+        "200":
+          description: Paginated failed jobs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/FailedJobSummary"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      operationId: flushFailedJobs
+      summary: Flush all failed jobs
+      description: |
+        Required scope: `queues:write`. Requires the `queues.write` feature.
+        Body must include `{ "confirm": true }` or a 422 is returned.
+      tags: [Queue Write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: boolean
+      responses:
+        "200":
+          description: All failed jobs flushed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: All failed jobs flushed.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          description: Confirmation required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /queues/failed/{id}:
+    get:
+      operationId: getFailedJob
+      summary: Get a failed job
+      description: "Required scope: `queues:read`. Returns full exception and payload."
+      tags: [Queues]
+      parameters:
+        - $ref: "#/components/parameters/FailedJobId"
+      responses:
+        "200":
+          description: Failed job detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/FailedJobDetail"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteFailedJob
+      summary: Delete a failed job
+      description: "Required scope: `queues:write`. Requires the `queues.write` feature."
+      tags: [Queue Write]
+      parameters:
+        - $ref: "#/components/parameters/FailedJobId"
+      responses:
+        "200":
+          description: Failed job deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: Failed job deleted.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /queues/failed/{id}/retry:
+    post:
+      operationId: retryFailedJob
+      summary: Retry a failed job
+      description: "Required scope: `queues:write`. Requires the `queues.write` feature."
+      tags: [Queue Write]
+      parameters:
+        - $ref: "#/components/parameters/FailedJobId"
+      responses:
+        "200":
+          description: Job queued for retry
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: "Job queued for retry."
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /queues/failed/retry-all:
+    post:
+      operationId: retryAllFailedJobs
+      summary: Retry all failed jobs
+      description: "Required scope: `queues:write`. Requires the `queues.write` feature."
+      tags: [Queue Write]
+      responses:
+        "200":
+          description: All failed jobs queued for retry
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: All failed jobs queued for retry.
+                          count:
+                            type: integer
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── Cache ─────────────────────────────────────────────────
+  /cache/info:
+    get:
+      operationId: getCacheInfo
+      summary: Cache driver info
+      description: "Required scope: `cache:read`. Requires the `cache.read` feature."
+      tags: [Cache]
+      responses:
+        "200":
+          description: Cache connection details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [driver, store]
+                        properties:
+                          driver:
+                            type: string
+                          store:
+                            type: string
+                          redis:
+                            type: object
+                            description: Present only when using the Redis driver
+                            properties:
+                              connected_clients:
+                                type: integer
+                              used_memory_human:
+                                type: string
+                              db_size:
+                                type: integer
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /cache/{key}:
+    get:
+      operationId: getCacheKey
+      summary: Read a cache key
+      description: |
+        Required scope: `cache:read`. Requires the `cache.read` feature.
+        Returns 403 with code `key_not_allowed` if the key is outside allowed prefixes.
+      tags: [Cache]
+      parameters:
+        - $ref: "#/components/parameters/CacheKey"
+      responses:
+        "200":
+          description: Cache value
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [key, value, type]
+                        properties:
+                          key:
+                            type: string
+                          value: {}
+                          type:
+                            type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          description: Key not allowed or insufficient scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: forgetCacheKey
+      summary: Forget a cache key
+      description: |
+        Required scope: `cache:write`. Requires the `cache.write` feature.
+        Returns 403 with code `key_not_allowed` if the key is outside allowed prefixes.
+      tags: [Cache Write]
+      parameters:
+        - $ref: "#/components/parameters/CacheKey"
+      responses:
+        "200":
+          description: Cache key forgotten
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          description: Key not allowed or insufficient scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /cache/flush:
+    post:
+      operationId: flushCache
+      summary: Flush entire cache
+      description: |
+        Required scope: `cache:write`. Requires the `cache.write` feature.
+        Body must include `{ "confirm": true }` or a 422 is returned.
+      tags: [Cache Write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: boolean
+      responses:
+        "200":
+          description: Cache flushed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: Cache flushed.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          description: Confirmation required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  # ── Config ────────────────────────────────────────────────
+  /config:
+    get:
+      operationId: getConfig
+      summary: Full configuration tree
+      description: |
+        Required scope: `config:read`.
+        Sensitive values are redacted as `"********"`.
+      tags: [Config]
+      responses:
+        "200":
+          description: Configuration tree
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /config/{key}:
+    get:
+      operationId: getConfigKey
+      summary: Read a config value
+      description: |
+        Required scope: `config:read`.
+        Key uses dot notation (e.g. `app.name`, `database.default`).
+        Sensitive values are returned as `"********"`.
+      tags: [Config]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: Dot-notation config key
+          schema:
+            type: string
+          example: app.name
+      responses:
+        "200":
+          description: Config value
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [key, value]
+                        properties:
+                          key:
+                            type: string
+                          value: {}
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── Logs ──────────────────────────────────────────────────
+  /logs:
+    get:
+      operationId: listLogs
+      summary: List log files
+      description: "Required scope: `logs:read`."
+      tags: [Logs]
+      responses:
+        "200":
+          description: Array of log files
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/LogFile"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /logs/{file}:
+    get:
+      operationId: getLogEntries
+      summary: Read log entries from a file
+      description: "Required scope: `logs:read`. Paginated."
+      tags: [Logs]
+      parameters:
+        - name: file
+          in: path
+          required: true
+          description: Log file name
+          schema:
+            type: string
+          example: laravel.log
+        - name: level
+          in: query
+          description: Filter by log level
+          schema:
+            type: string
+            enum: [emergency, alert, critical, error, warning, notice, info, debug]
+        - name: search
+          in: query
+          description: Search within log messages
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Paginated log entries
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/LogEntry"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          description: Log file too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /logs/{file}/stream:
+    get:
+      operationId: streamLogEntries
+      summary: Stream log entries (SSE)
+      description: |
+        Required scope: `logs:read`. Requires the `logs.stream` feature.
+        Returns a `text/event-stream` response.
+      tags: [Logs]
+      parameters:
+        - name: file
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: level
+          in: query
+          description: Filter by log level
+          schema:
+            type: string
+            enum: [emergency, alert, critical, error, warning, notice, info, debug]
+      responses:
+        "200":
+          description: SSE stream of log entries
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Schedule ──────────────────────────────────────────────
+  /schedule:
+    get:
+      operationId: listSchedule
+      summary: List scheduled tasks
+      description: "Required scope: `schedule:read`."
+      tags: [Schedule]
+      responses:
+        "200":
+          description: Array of scheduled tasks
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ScheduleEntry"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── Migrations ────────────────────────────────────────────
+  /migrations:
+    get:
+      operationId: listMigrations
+      summary: List migrations by batch
+      description: "Required scope: `migrations:read`."
+      tags: [Migrations]
+      responses:
+        "200":
+          description: Migration batches
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [batches, total]
+                        properties:
+                          batches:
+                            type: array
+                            items:
+                              type: object
+                              required: [batch, migrations]
+                              properties:
+                                batch:
+                                  type: integer
+                                migrations:
+                                  type: array
+                                  items:
+                                    type: string
+                          total:
+                            type: integer
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── Events ────────────────────────────────────────────────
+  /events:
+    get:
+      operationId: listEvents
+      summary: List events and listeners
+      description: "Required scope: `events:read`."
+      tags: [Events]
+      responses:
+        "200":
+          description: Array of events with their listeners
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/EventEntry"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── Horizon ───────────────────────────────────────────────
+  /horizon/status:
+    get:
+      operationId: getHorizonStatus
+      summary: Horizon status
+      description: "Required scope: `horizon:read`. Only available when Horizon is installed."
+      tags: [Horizon]
+      responses:
+        "200":
+          description: Horizon status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [status, supervisor_count]
+                        properties:
+                          status:
+                            type: string
+                          supervisor_count:
+                            type: integer
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /horizon/metrics/jobs:
+    get:
+      operationId: getHorizonJobMetrics
+      summary: Horizon job metrics
+      description: "Required scope: `horizon:read`."
+      tags: [Horizon]
+      responses:
+        "200":
+          description: Job metrics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: {}
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /horizon/recent-jobs:
+    get:
+      operationId: getHorizonRecentJobs
+      summary: Horizon recent jobs
+      description: "Required scope: `horizon:read`. Returns the last 50 jobs."
+      tags: [Horizon]
+      responses:
+        "200":
+          description: Recent jobs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: {}
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /horizon/pause:
+    post:
+      operationId: pauseHorizon
+      summary: Pause Horizon worker
+      description: "Required scope: `horizon:write`."
+      tags: [Horizon]
+      responses:
+        "200":
+          description: Worker paused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /horizon/continue:
+    post:
+      operationId: continueHorizon
+      summary: Resume Horizon worker
+      description: "Required scope: `horizon:write`."
+      tags: [Horizon]
+      responses:
+        "200":
+          description: Worker resumed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /horizon/terminate:
+    post:
+      operationId: terminateHorizon
+      summary: Terminate Horizon supervisor
+      description: "Required scope: `horizon:write`."
+      tags: [Horizon]
+      responses:
+        "200":
+          description: Supervisor terminated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── Pulse ─────────────────────────────────────────────────
+  /pulse/servers:
+    get:
+      operationId: getPulseServers
+      summary: Pulse server metrics
+      description: "Required scope: `pulse:read`. Only available when Pulse is installed."
+      tags: [Pulse]
+      responses:
+        "200":
+          description: Server metrics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: {}
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /pulse/slow-queries:
+    get:
+      operationId: getPulseSlowQueries
+      summary: Pulse slow queries
+      description: "Required scope: `pulse:read`."
+      tags: [Pulse]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Slow queries
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: {}
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /pulse/slow-requests:
+    get:
+      operationId: getPulseSlowRequests
+      summary: Pulse slow requests
+      description: "Required scope: `pulse:read`."
+      tags: [Pulse]
+      responses:
+        "200":
+          description: Slow requests
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: {}
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /pulse/slow-jobs:
+    get:
+      operationId: getPulseSlowJobs
+      summary: Pulse slow jobs
+      description: "Required scope: `pulse:read`."
+      tags: [Pulse]
+      responses:
+        "200":
+          description: Slow jobs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: {}
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /pulse/exceptions:
+    get:
+      operationId: getPulseExceptions
+      summary: Pulse exception metrics
+      description: "Required scope: `pulse:read`."
+      tags: [Pulse]
+      responses:
+        "200":
+          description: Exception metrics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: {}
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /pulse/usage:
+    get:
+      operationId: getPulseUsage
+      summary: Pulse usage metrics
+      description: "Required scope: `pulse:read`."
+      tags: [Pulse]
+      responses:
+        "200":
+          description: Usage metrics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: {}
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+# ═════════════════════════════════════════════════════════════
+# Components
+# ═════════════════════════════════════════════════════════════
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        SHA-256 hashed token matched against the `companion_agents` table.
+        Pass via `Authorization: Bearer {token}`.
+
+  # ── Parameters ────────────────────────────────────────────
+  parameters:
+    ModelName:
+      name: model
+      in: path
+      required: true
+      description: Model short name or fully-qualified class name
+      schema:
+        type: string
+      example: User
+
+    FailedJobId:
+      name: id
+      in: path
+      required: true
+      description: Failed job ID
+      schema:
+        type: string
+
+    CacheKey:
+      name: key
+      in: path
+      required: true
+      description: Cache key
+      schema:
+        type: string
+
+  # ── Reusable Responses ───────────────────────────────────
+  responses:
+    Unauthenticated:
+      description: Missing or invalid Bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    Forbidden:
+      description: Insufficient scope or feature disabled
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+  # ── Schemas ──────────────────────────────────────────────
+  schemas:
+    Meta:
+      type: object
+      required: [environment, laravel_version, php_version, companion_version, timestamp]
+      properties:
+        environment:
+          type: string
+        laravel_version:
+          type: string
+        php_version:
+          type: string
+        companion_version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      required: [current_page, last_page, per_page, total]
+      properties:
+        current_page:
+          type: integer
+        last_page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+
+    ErrorDetail:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+    SuccessEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {}
+        meta:
+          $ref: "#/components/schemas/Meta"
+
+    PaginatedEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {}
+        meta:
+          allOf:
+            - $ref: "#/components/schemas/Meta"
+            - type: object
+              required: [pagination]
+              properties:
+                pagination:
+                  $ref: "#/components/schemas/Pagination"
+
+    ErrorEnvelope:
+      type: object
+      required: [error, meta]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"
+        meta:
+          type: object
+          required: [timestamp]
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+
+    # ── Domain Schemas ────────────────────────────────────
+    EnvironmentData:
+      type: object
+      required: [app_name, environment, debug, url, timezone, locale, php_version, laravel_version, drivers]
+      properties:
+        app_name:
+          type: string
+        environment:
+          type: string
+        debug:
+          type: boolean
+        url:
+          type: string
+          format: uri
+        timezone:
+          type: string
+        locale:
+          type: string
+        php_version:
+          type: string
+        laravel_version:
+          type: string
+        drivers:
+          type: object
+          properties:
+            database:
+              type: string
+            cache:
+              type: string
+            queue:
+              type: string
+            mail:
+              type: string
+            session:
+              type: string
+
+    ModelMetadata:
+      type: object
+      required: [class, short_name, table, timestamps, fillable, casts, relationships, soft_deletes]
+      properties:
+        class:
+          type: string
+          description: Fully-qualified class name
+        short_name:
+          type: string
+        table:
+          type: string
+        timestamps:
+          type: boolean
+        fillable:
+          type: array
+          items:
+            type: string
+        casts:
+          type: object
+          additionalProperties:
+            type: string
+        relationships:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        soft_deletes:
+          type: boolean
+
+    RouteEntry:
+      type: object
+      required: [methods, uri, name, action, middleware]
+      properties:
+        methods:
+          type: array
+          items:
+            type: string
+        uri:
+          type: string
+        name:
+          type: ["string", "null"]
+        action:
+          type: string
+        middleware:
+          type: array
+          items:
+            type: string
+        domain:
+          type: ["string", "null"]
+        parameters:
+          type: array
+          items:
+            type: string
+
+    CommandEntry:
+      type: object
+      required: [name, description, arguments, options]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        arguments:
+          type: array
+          items:
+            type: object
+            required: [name, description, required]
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              required:
+                type: boolean
+              default:
+                type: ["string", "null"]
+        options:
+          type: array
+          items:
+            type: object
+            required: [name, description, value_required]
+            properties:
+              name:
+                type: string
+              shortcut:
+                type: ["string", "null"]
+              description:
+                type: string
+              default: {}
+              value_required:
+                type: boolean
+
+    FailedJobSummary:
+      type: object
+      required: [id, uuid, connection, queue, exception, failed_at]
+      properties:
+        id:
+          type: integer
+        uuid:
+          type: string
+        connection:
+          type: string
+        queue:
+          type: string
+        exception:
+          type: string
+          description: Truncated to 500 characters
+        failed_at:
+          type: string
+          format: date-time
+
+    FailedJobDetail:
+      type: object
+      required: [id, uuid, connection, queue, exception, payload, failed_at]
+      properties:
+        id:
+          type: integer
+        uuid:
+          type: string
+        connection:
+          type: string
+        queue:
+          type: string
+        exception:
+          type: string
+          description: Full exception text
+        payload:
+          type: object
+          additionalProperties: true
+        failed_at:
+          type: string
+          format: date-time
+
+    LogFile:
+      type: object
+      required: [name, size, size_human, last_modified]
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+          description: Size in bytes
+        size_human:
+          type: string
+        last_modified:
+          type: string
+          format: date-time
+
+    LogEntry:
+      type: object
+      required: [level, datetime, channel, message]
+      properties:
+        level:
+          type: string
+        datetime:
+          type: string
+          format: date-time
+        channel:
+          type: string
+        message:
+          type: string
+        context:
+          type: ["object", "null"]
+          additionalProperties: true
+        stack_trace:
+          type: ["string", "null"]
+
+    ScheduleEntry:
+      type: object
+      required: [command, expression, description, timezone, without_overlapping, on_one_server, next_due]
+      properties:
+        command:
+          type: string
+        expression:
+          type: string
+          description: Cron expression
+        description:
+          type: string
+        timezone:
+          type: string
+        without_overlapping:
+          type: boolean
+        on_one_server:
+          type: boolean
+        next_due:
+          type: object
+          required: [local, utc]
+          properties:
+            local:
+              type: string
+              format: date-time
+            utc:
+              type: string
+              format: date-time
+
+    EventEntry:
+      type: object
+      required: [event, listeners]
+      properties:
+        event:
+          type: string
+          description: Event class name
+        listeners:
+          type: array
+          items:
+            type: object
+            required: [class, queued]
+            properties:
+              class:
+                type: string
+              queued:
+                type: boolean
