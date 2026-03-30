@@ -4,6 +4,8 @@ A structured JSON API for mobile and external tooling to inspect, monitor, and m
 
 Designed as the server-side companion to a native iOS app, but protocol-agnostic — any HTTP client can consume the API.
 
+> **See it in action:** [laravel-companion-demo](https://github.com/clinically-au/laravel-companion-demo) — a full Laravel 13 app that integrates every feature with 121 passing tests, an API Explorer, and Swagger UI docs.
+
 ## Features
 
 - **Token-based agent authentication** with SHA-256 hashed tokens, scopes, expiry, IP allowlists
