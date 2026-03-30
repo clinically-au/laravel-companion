@@ -6,11 +6,13 @@ namespace Clinically\Companion\Livewire;
 
 use Clinically\Companion\Services\TokenService;
 use Illuminate\Contracts\View\View;
+use Livewire\Attributes\Modelable;
 use Livewire\Component;
 
 final class ScopePicker extends Component
 {
     /** @var list<string> */
+    #[Modelable]
     public array $selected = [];
 
     public function applyPreset(string $preset): void

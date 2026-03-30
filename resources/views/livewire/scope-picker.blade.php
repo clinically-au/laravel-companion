@@ -11,13 +11,12 @@
     </div>
 
     {{-- Scope checkboxes --}}
-    <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <flux:checkbox.group wire:model.live="selected" class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         @foreach($availableScopes as $scope)
             <flux:checkbox
-                wire:click="toggleScope('{{ $scope }}')"
-                :checked="in_array($scope, $selected)"
+                :value="$scope"
                 :label="$scope"
             />
         @endforeach
-    </div>
+    </flux:checkbox.group>
 </div>
