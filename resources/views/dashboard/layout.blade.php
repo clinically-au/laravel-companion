@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Companion — {{ config('app.name') }}</title>
-    @fluxStyles
-    @livewireStyles
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @fluxAppearance
 </head>
 <body class="min-h-screen bg-white dark:bg-zinc-800">
     <flux:sidebar sticky stashable class="border-r border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
@@ -72,6 +72,5 @@
     </flux:main>
 
     @fluxScripts
-    @livewireScripts
 </body>
 </html>

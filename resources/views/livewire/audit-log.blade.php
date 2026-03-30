@@ -2,12 +2,12 @@
     <div class="mb-4 flex items-end gap-3">
         <flux:input wire:model.live.debounce.300ms="actionFilter" placeholder="Filter by action..." icon="magnifying-glass" class="max-w-xs" />
 
-        <flux:select wire:model.live="methodFilter" variant="native" class="max-w-[10rem]">
+        <select wire:model.live="methodFilter" class="max-w-[10rem] rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800">
             <option value="">All Methods</option>
             <option value="GET">GET</option>
             <option value="POST">POST</option>
             <option value="DELETE">DELETE</option>
-        </flux:select>
+        </select>
     </div>
 
     <flux:table :paginate="$this->entries()">

@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace Clinically\Companion\Services;
 
+use BaconQrCode\Common\ErrorCorrectionLevel;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\PlainTextRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
 use Clinically\Companion\Models\CompanionAgent;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 final class QrPayloadService
 {
@@ -34,14 +39,19 @@ final class QrPayloadService
     {
         $payload = json_encode($this->buildPayload($agent, $plainToken));
 
-        if (! class_exists(QrCode::class)) {
+        if (! class_exists(Writer::class)) {
             return '';
         }
 
-        return (string) QrCode::format('svg')
-            ->size(300)
-            ->errorCorrection('M')
-            ->generate($payload);
+        $renderer = new ImageRenderer(
+            new RendererStyle(300),
+            new SvgImageBackEnd,
+        );
+
+        return (new Writer($renderer))->writeString(
+            $payload,
+            ecLevel: ErrorCorrectionLevel::M(),
+        );
     }
 
     /**
@@ -51,13 +61,15 @@ final class QrPayloadService
     {
         $payload = json_encode($this->buildPayload($agent, $plainToken));
 
-        if (! class_exists(QrCode::class)) {
-            return "QR code generation requires simplesoftwareio/simple-qrcode.\nPayload: {$payload}";
+        if (! class_exists(Writer::class)) {
+            return "QR code generation requires bacon/bacon-qr-code.\nPayload: {$payload}";
         }
 
-        // Use the library to generate a string format if available
         try {
-            return (string) QrCode::generate($payload);
+            return (new Writer(new PlainTextRenderer))->writeString(
+                $payload,
+                ecLevel: ErrorCorrectionLevel::M(),
+            );
         } catch (\Throwable) {
             return "QR payload: {$payload}";
         }

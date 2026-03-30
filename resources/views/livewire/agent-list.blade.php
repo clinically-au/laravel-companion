@@ -1,10 +1,11 @@
 <div>
-    <flux:tabs wire:model="filter" variant="segmented" class="mb-6">
-        <flux:tab name="all">All</flux:tab>
-        <flux:tab name="active">Active</flux:tab>
-        <flux:tab name="revoked">Revoked</flux:tab>
-        <flux:tab name="expired">Expired</flux:tab>
-    </flux:tabs>
+    <div class="mb-6 flex gap-1">
+        @foreach (['all' => 'All', 'active' => 'Active', 'revoked' => 'Revoked', 'expired' => 'Expired'] as $value => $label)
+            <flux:button wire:click="$set('filter', '{{ $value }}')" size="sm" :variant="$filter === $value ? 'filled' : 'ghost'">
+                {{ $label }}
+            </flux:button>
+        @endforeach
+    </div>
 
     <flux:table :paginate="$this->agents()">
         <flux:table.columns>
