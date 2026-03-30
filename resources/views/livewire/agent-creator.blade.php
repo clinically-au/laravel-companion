@@ -1,10 +1,21 @@
 <div>
     @if($plainToken)
-        <div class="rounded-xl border border-green-200 bg-green-50 p-5 dark:border-green-800 dark:bg-green-900/20">
-            <flux:heading size="sm" class="text-green-800 dark:text-green-300">Agent created successfully!</flux:heading>
-            <flux:text size="sm" class="mt-1 text-green-700 dark:text-green-400">
-                The token has been displayed above. Save it before navigating away.
-            </flux:text>
+        <div class="max-w-lg space-y-6">
+            <div class="rounded-xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-700 dark:bg-amber-900/20">
+                <flux:heading size="sm" class="text-amber-800 dark:text-amber-300">Authentication Token</flux:heading>
+                <flux:text size="sm" class="mt-1 text-amber-700 dark:text-amber-400">
+                    This token is shown only once. Copy it now.
+                </flux:text>
+                <div class="mt-3">
+                    <flux:input readonly :value="$plainToken" copyable class="font-mono" />
+                </div>
+            </div>
+
+            <livewire:companion-qr-code :agent="$agentId" :token="$plainToken" />
+
+            <flux:button href="{{ route('companion.dashboard.agents.show', $agentId) }}" variant="primary" icon="arrow-right">
+                View Agent Details
+            </flux:button>
         </div>
     @else
         <form wire:submit="createAgent" class="max-w-lg space-y-6">
