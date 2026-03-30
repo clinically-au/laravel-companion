@@ -7,8 +7,8 @@ namespace Clinically\Companion\Services;
 use Clinically\Companion\Data\CompanionAgentToken;
 use Clinically\Companion\Events\AgentCreated;
 use Clinically\Companion\Models\CompanionAgent;
+use DateTimeInterface;
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 final class TokenService
@@ -22,7 +22,7 @@ final class TokenService
     public function createAgent(
         string $name,
         array $scopes,
-        ?Carbon $expiresAt = null,
+        ?DateTimeInterface $expiresAt = null,
         ?Authenticatable $creator = null,
         ?array $ipAllowlist = null,
     ): CompanionAgentToken {
